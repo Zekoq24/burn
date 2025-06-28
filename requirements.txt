@@ -1,0 +1,5 @@
+flask>=3.1.0
+requests>=2.32.3
+solana>=0.30.2
+solders>=0.19.0
+anchorpy>=0.18.0
