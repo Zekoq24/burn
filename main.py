@@ -8,7 +8,7 @@ app = Flask(__name__)
 app.template_folder = 'templates'
 logging.basicConfig(level=logging.INFO)
 
-RPC_URL = "https://solana-mainnet.g.alchemy.com/v2/QMBCCev_Ig1zGFssTed57KsriUzCryCj"
+RPC_URL = "https://solana-devnet.g.alchemy.com/v2/QMBCCev_Ig1zGFssTed57KsriUzCryCj"
 
 @app.route('/')
 def home():
