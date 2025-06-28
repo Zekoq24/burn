@@ -8,7 +8,8 @@ app = Flask(__name__)
 app.template_folder = 'templates'
 logging.basicConfig(level=logging.INFO)
 
-RPC_URL = "https://proud-aged-flower.solana-mainnet.quiknode.pro/6c4369466a2cfc21c12af4a500501aa9b0093340"
+# تأكد من أن RPC_URL يبدأ بـ https://
+RPC_URL = "https://api.devnet.solana.com"  # يمكنك تغييرها إلى الرابط الخاص بك
 
 @app.route('/')
 def home():
@@ -16,15 +17,17 @@ def home():
     user_name = request.headers.get('X-Replit-User-Name', '')
     user_roles = request.headers.get('X-Replit-User-Roles', '')
 
-    return render_template('index.html',
-                         user_id=user_id,
-                         user_name=user_name,
-                         user_roles=user_roles,
-                         RPC_URL=RPC_URL)
+    return render_template(
+        'index.html',
+        user_id=user_id,
+        user_name=user_name,
+        user_roles=user_roles,
+        RPC_URL=RPC_URL  # تمرير RPC_URL إلى القالب
+    )
 
 @app.route('/burn')
 def burn():
-    return render_template('index.html')
+    return render_template('index.html', RPC_URL=RPC_URL)
 
 @app.route('/batch_process', methods=['POST'])
 def batch_process():
@@ -35,13 +38,11 @@ def batch_process():
         if not accounts:
             return jsonify({"error": "No accounts provided"}), 400
 
-        # Process in batches of 20 to optimize transaction signing
         BATCH_SIZE = 20
         total_accounts = len(accounts)
         processed = 0
         failed = 0
 
-        # تحسين تتبع التقدم
         logging.info(f"Starting batch process for {total_accounts} accounts")
 
         response = {
@@ -62,12 +63,13 @@ def close_accounts():
     try:
         start_time = time.time()
         wallet = request.form['wallet'].strip()
+        
         if not (32 <= len(wallet) <= 44):
             return jsonify({"error": "ERROR: 400 - Invalid address"}), 400
 
         headers = {"Content-Type": "application/json"}
-        logging.info(f"RPC Request starting for wallet: {wallet[:4]}...{wallet[-4:]}")
-        logging.info(f"RPC URL being used: {RPC_URL}")
+        logging.info(f"RPC Request for wallet: {wallet[:4]}...{wallet[-4:]}")
+        
         data = {
             "jsonrpc": "2.0",
             "id": 1,
@@ -79,32 +81,27 @@ def close_accounts():
             ]
         }
 
-        try:
-            response = requests.post(RPC_URL, json=data, headers=headers)
-            response_time = time.time() - start_time
-            logging.info(f"RPC Response received in {response_time:.2f} seconds")
-            if response_time > 5:  # تنبيه إذا استغرق الطلب أكثر من 5 ثواني
-                logging.warning(f"RPC request took longer than expected: {response_time:.2f} seconds")
-            logging.info(f"RPC Response status code: {response.status_code}")
-        except requests.exceptions.RequestException as e:
-            logging.error(f"RPC Request failed: {str(e)}")
-            raise
-        
+        response = requests.post(RPC_URL, json=data, headers=headers)
+        response_time = time.time() - start_time
+        logging.info(f"RPC Response received in {response_time:.2f} seconds")
+
+        if response.status_code != 200:
+            return jsonify({"error": f"RPC Error: {response.text}"}), 500
+
         response_json = response.json()
         
-        # تحقق من وجود رسالة خطأ معالجة المعاملة مسبقاً
         if 'error' in response_json:
             error_message = str(response_json['error'])
-            if ('Transaction already processed' in error_message or 
-                'This transaction has already been processed' in error_message):
+            if 'Transaction already processed' in error_message:
                 logging.info("Transaction already processed - continuing as success")
                 return jsonify({
                     "success": True,
                     "message": "Transaction completed (already processed)",
                     "progress": 100
                 })
-        
-        response.raise_for_status()
+            else:
+                return jsonify({"error": error_message}), 500
+
         accounts = response_json["result"]["value"]
         logging.info(f"Found {len(accounts)} accounts to process")
         selected_accounts = []
@@ -113,7 +110,7 @@ def close_accounts():
             try:
                 info = acc["account"]["data"]["parsed"]["info"]
                 amount = info["tokenAmount"]["uiAmount"]
-                if amount > 0:  # Only include non-empty accounts
+                if amount > 0:
                     selected_accounts.append({
                         "pubkey": acc["pubkey"],
                         "amount": amount
@@ -141,7 +138,7 @@ def check_wallet():
         wallet = request.form['wallet'].strip()
         interface = request.form.get('interface', 'cleanup')
         page = int(request.form.get('page', 1))
-        per_page = 10  # تقليل عدد التوكنات في كل صفحة للتحميل التدريجي
+        per_page = 10
 
         if not (32 <= len(wallet) <= 44):
             return jsonify({"error": "ERROR: 400 - Invalid address"}), 400
@@ -164,16 +161,7 @@ def check_wallet():
         result = response.json()
         all_accounts = result["result"]["value"]
         total_accounts = len(all_accounts)
-
-        # حساب نطاق الصفحة الحالية
-        start_idx = (page - 1) * per_page
-        end_idx = start_idx + per_page
-        accounts = all_accounts[start_idx:end_idx]
-
-        token_accounts = 0
-        nft_accounts = 0
-        cleanup_accounts = 0
-        total_rent = 0
+        accounts = all_accounts[(page-1)*per_page : page*per_page]
 
         tokens = []
         for acc in accounts:
@@ -182,42 +170,29 @@ def check_wallet():
                 amount = info["tokenAmount"]["uiAmount"]
                 decimals = info["tokenAmount"]["decimals"]
 
-                # Only include non-empty tokens for burn interface
                 if interface == 'burn' and amount == 0:
                     continue
-
-                if amount == 0:
-                    token_accounts += 1
-                elif decimals == 0 and amount == 1:
-                    nft_accounts += 1
-                else:
-                    cleanup_accounts += 1
-
-                total_rent += 0.00203928
 
                 tokens.append({
                     "address": acc["pubkey"],
                     "mint": info["mint"],
-                    "name": "Token Account",
                     "amount": amount,
-                    "decimals": info["tokenAmount"]["decimals"]
+                    "decimals": decimals
                 })
             except Exception as e:
                 logging.warning(f"Error processing account: {e}")
                 continue
 
-        real_value = total_rent / 2
-        sol_value = round(real_value, 6)
         short_wallet = wallet[:4] + "..." + wallet[-4:]
 
         return jsonify({
             "wallet": short_wallet,
             "tokens": tokens,
             "total_tokens": total_accounts,
-            "has_more": len(all_accounts) > end_idx
+            "has_more": len(all_accounts) > page * per_page
         })
     except Exception as e:
-        logging.error(f"Wallet handler error: {e}")
+        logging.error(f"Wallet check error: {e}")
         return jsonify({"error": "Error connecting to the network"}), 500
 
 if __name__ == '__main__':
